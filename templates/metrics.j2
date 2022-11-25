@@ -1,0 +1,14 @@
+# HELP container_last_seen Last time a container was seen by the exporter
+# TYPE container_last_seen gauge
+{%-for container in containers%}
+{%-if container.status == "running"%}
+container_last_seen{image="{{ container.image }}",name="{{ container.name }}"} {{ container.time }}
+{%-endif%}
+{%-endfor%}
+{%for status in statuses-%}
+# HELP container_status_{{ status }} The status of container equals "{{ status }}"
+# TYPE container_status_{{ status }} gauge
+{%-for container in containers%}
+container_status_{{ status }}{image="{{ container.image }}",name="{{ container.name }}"} {%if container.status == status%}1{%else%}0{%endif%}
+{%-endfor%}
+{%endfor%}

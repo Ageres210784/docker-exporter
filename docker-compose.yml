@@ -1,0 +1,14 @@
+---
+version: "3.8"
+services:
+  docker-exporter:
+    container_name: docker-exporter
+    image: docker-exporter:latest
+    restart: always
+    build:
+      context: .
+      target: build
+    ports:
+      - 127.0.0.1:8080:8000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
