@@ -28,17 +28,13 @@ app = FastAPI()
 async def get_containers():
     cli = docker.from_env()
     t = []
-    try:
-        for container in cli.containers.list(all=True):
-            t.append({
-                "image": container.attrs['Config']['Image'],
-                "name": container.name,
-                "status": container.status,
-                "time": int(time.time())
-            })
-    except docker.errors.NotFound as err:
-        print(err)
-        return(scraped)
+    for container in cli.containers.list(all=True,ignore_removed=True):
+        t.append({
+            "image": container.attrs['Config']['Image'],
+            "name": container.name,
+            "status": container.status,
+            "time": int(time.time())
+        })
     return(t)
 
 def renderer():
