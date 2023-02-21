@@ -9,6 +9,9 @@ import asyncio
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from typing import List
+import re
+
 scraped = None
 
 env = Environment(
@@ -37,7 +40,7 @@ async def get_containers():
         })
     return(t)
 
-def renderer():
+def renderer(scraped):
     return(template.render(
         containers=scraped,
         statuses=["created", "restarting", "running", "removing", "paused", "exited", "dead"]
@@ -48,8 +51,18 @@ async def startup_event():
     asyncio.create_task(scrape_containers_info())
 
 @app.get('/metrics')
-def metrics():
-    return PlainTextResponse(content=renderer(), status_code=200)
+async def metrics():
+    return PlainTextResponse(content=renderer(scraped), status_code=200)
+
+@app.get("/probe")
+async def probe(
+        include: str = '.*',
+        exclude: str = ''):
+    containers = []
+    for container in scraped:
+        if re.fullmatch(include,container['name']) and not re.fullmatch(exclude,container['name']):
+            containers.append(container)
+    return PlainTextResponse(content=renderer(containers), status_code=200)
 
 app.mount("/", StaticFiles(directory="./static", html="True"), name="static")
 
