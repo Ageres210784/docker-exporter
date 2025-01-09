@@ -1,7 +1,12 @@
 # HELP service_last_seen Last time a service was seen by the exporter
 # TYPE service_last_seen gauge
 {%-for service in services%}
-service_last_seen{name="{{ service.name }}",image="{{ service.image }}"} {{ service.time }}
+service_last_seen{service_name="{{ service.name }}",image="{{ service.image }}"} {{ service.time }}
+{%-endfor%}
+# HELP service_replicas Number of service replicas
+# TYPE service_replicas gauge
+{%-for service in services%}
+service_replicas{service_name="{{ service.name }}",image="{{ service.image }}"} {{ service.replicas }}
 {%-endfor%}
 {%for status in statuses-%}
 # HELP task_status_{{ status }} The status of task equals "{{ status }}"

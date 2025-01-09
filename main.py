@@ -66,9 +66,14 @@ async def get_services():
     cli = docker.from_env()
     s = []
     for service in cli.services.list():
+        service_inspect = service.attrs
+        if 'Replicated' in service_inspect["Spec"]["Mode"]:
+            replicas = service_inspect["Spec"]["Mode"]["Replicated"]["Replicas"]
+        else: replicas = -1
         s.append({
             "name": service.name,
-            "image": service.attrs['Spec']['TaskTemplate']['ContainerSpec']['Image'],
+            "image": service_inspect['Spec']['TaskTemplate']['ContainerSpec']['Image'],
+            "replicas": replicas,
             "tasks": await get_tasks(service),
             "time": int(time.time())
         })
