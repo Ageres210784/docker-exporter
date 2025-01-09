@@ -1,0 +1,14 @@
+# HELP service_last_seen Last time a service was seen by the exporter
+# TYPE service_last_seen gauge
+{%-for service in services%}
+service_last_seen{name="{{ service.name }}",image="{{ service.image }}"} {{ service.time }}
+{%-endfor%}
+{%for status in statuses-%}
+# HELP task_status_{{ status }} The status of task equals "{{ status }}"
+# TYPE task_status_{{ status }} gauge
+{%-for service in services%}
+{%-for task in service.tasks%}
+task_status_{{ status }}{service_name="{{ service.name }}",task_id="{{ task.id }}",image="{{ service.image }}"} {%if task.status == status%}1{%else%}0{%endif%}
+{%-endfor%}
+{%-endfor%}
+{%endfor%}

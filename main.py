@@ -6,6 +6,7 @@ import uvicorn
 import docker
 import time
 import asyncio
+import os
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -14,16 +15,26 @@ import re
 
 scraped = None
 
+exporter_mode = os.environ.get("EXPORTER_MODE", "docker")
+
+if exporter_mode == "swarm":
+    status_list=["new", "pending", "assigned", "accepted", "ready", "preparing", "starting", "running", "complete", "failed", "shutdown", "rejected", "orphaned", "remove"]
+else:
+    status_list=["created", "restarting", "running", "removing", "paused", "exited", "dead"]
+
 env = Environment(
     loader=FileSystemLoader('./templates'),
     autoescape=select_autoescape(['j2'])
 )
-template = env.get_template('metrics.j2')
+template = env.get_template(exporter_mode + '_metrics.j2')
 
 async def scrape_containers_info():
     while True:
         global scraped
-        scraped = await get_containers()
+        if exporter_mode == "swarm":
+           scraped = await get_services()
+        else:
+           scraped = await get_containers()
         await asyncio.sleep(10)
 
 app = FastAPI()
@@ -40,11 +51,40 @@ async def get_containers():
         })
     return(t)
 
+async def get_tasks(service):
+    t = []
+    for task in service.tasks():
+        if task['DesiredState'] == "running":
+            t.append({
+                "id": task['ID'],
+                "desired_state": task['DesiredState'],
+                "status": task['Status']['State']
+            })
+    return(t)
+
+async def get_services():
+    cli = docker.from_env()
+    s = []
+    for service in cli.services.list():
+        s.append({
+            "name": service.name,
+            "image": service.attrs['Spec']['TaskTemplate']['ContainerSpec']['Image'],
+            "tasks": await get_tasks(service),
+            "time": int(time.time())
+        })
+    return(s)
+
 def renderer(scraped):
-    return(template.render(
-        containers=scraped,
-        statuses=["created", "restarting", "running", "removing", "paused", "exited", "dead"]
-    ))
+    if exporter_mode == "swarm":
+        return(template.render(
+            services=scraped,
+            statuses=status_list
+        ))
+    else:
+        return(template.render(
+            containers=scraped,
+            statuses=status_list
+        ))
 
 @app.on_event("startup")
 async def startup_event():

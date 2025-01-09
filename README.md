@@ -7,7 +7,6 @@ docker run --name docker_exporter -p 127.0.0.1:8000:8000 -v /var/run/docker.sock
 ## ... or via `docker-compose`
 ```docker
 ---
-version: "3.8"
 services:
   docker-exporter:
     container_name: docker_exporter
@@ -18,7 +17,32 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 ```
-Run `docker-compose up`
+Run `docker compose up`
+
+## ... or via `docker swarm stack`
+```docker
+---
+services:
+  docker-exporter:
+    container_name: docker-exporter
+    image: ageres210784/docker-exporter
+    ports:
+      - 8000:8000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      EXPORTER_MODE: swarm
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role==manager
+      restart_policy:
+        condition: any
+```
+
+Run `docker stack deploy -c docker-compose.yml monitoring`
 
 Visit `http://localhost:8000/metrics`
 
