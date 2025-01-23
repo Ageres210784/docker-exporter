@@ -44,6 +44,8 @@ services:
 
 Run `docker stack deploy -c docker-compose.yml monitoring`
 
+Visit `http://localhost:8000/metrics`
+
 ## Recomendation
 For less problems with restarting docker.socket you should use hardlink to /var/run/docker.sock
 
@@ -53,6 +55,7 @@ Add file /etc/systemd/system/docker.socket.d/override.conf
 [Socket]
 ExecStartPost=/bin/ln -f /var/run/docker.sock /var/run/docker.run/docker.sock
 ```
+
 Use
 ```Docker
     environment:
@@ -68,8 +71,6 @@ You can use environment variables:
   - `"docker"` (default) - scrape containers
   - `"swarm"` - scrape services and tasks
 - `SCRAPE_DELAY` - delay between container information updates (default - 10)
-
-Visit `http://localhost:8000/metrics`
 
 ## Filter containers
 For include/exclude containers, use regexp parameters:
