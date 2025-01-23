@@ -16,6 +16,7 @@ import re
 scraped = None
 
 exporter_mode = os.environ.get("EXPORTER_MODE", "docker")
+scrape_delay = float(os.environ.get("SCRAPE_DELAY", "10"))
 
 if exporter_mode == "swarm":
     status_list=["new", "pending", "assigned", "accepted", "ready", "preparing", "starting", "running", "complete", "failed", "shutdown", "rejected", "orphaned", "remove"]
@@ -35,20 +36,41 @@ async def scrape_containers_info():
            scraped = await get_services()
         else:
            scraped = await get_containers()
-        await asyncio.sleep(10)
+        await asyncio.sleep(scrape_delay)
 
 app = FastAPI()
 
+async def get_docker_client():
+    retries = 5
+    backoff = 2
+
+    for attempt in range(retries):
+        try:
+            return docker.from_env()
+        except Exception as e:
+            if attempt < retries - 1:
+                await asyncio.sleep(backoff)
+                backoff *= 2
+                print(f"Reconnect attempt № {attempt + 1}")
+                continue
+            else:
+                raise RuntimeError(f"Failed to connect to Docker after {retries} attempts: {e}. The container needs to be restarted!")
+
 async def get_containers():
-    cli = docker.from_env()
+    cli = await get_docker_client()
     t = []
-    for container in cli.containers.list(all=True,ignore_removed=True):
-        t.append({
-            "image": container.attrs['Config']['Image'],
-            "name": container.name,
-            "status": container.status,
-            "time": int(time.time())
-        })
+    try:
+        for container in cli.containers.list(all=True,ignore_removed=True):
+            t.append({
+                "image": container.attrs['Config']['Image'],
+                "name": container.name,
+                "status": container.status,
+                "time": int(time.time())
+            })
+    except Exception as e:
+        print(f"Error receiving containers: {e}")
+    finally:
+        cli.close()
     return(t)
 
 async def get_tasks(service):
@@ -63,20 +85,25 @@ async def get_tasks(service):
     return(t)
 
 async def get_services():
-    cli = docker.from_env()
+    cli = await get_docker_client()
     s = []
-    for service in cli.services.list():
-        service_inspect = service.attrs
-        if 'Replicated' in service_inspect["Spec"]["Mode"]:
-            replicas = service_inspect["Spec"]["Mode"]["Replicated"]["Replicas"]
-        else: replicas = -1
-        s.append({
-            "name": service.name,
-            "image": service_inspect['Spec']['TaskTemplate']['ContainerSpec']['Image'],
-            "replicas": replicas,
-            "tasks": await get_tasks(service),
-            "time": int(time.time())
-        })
+    try:
+        for service in cli.services.list():
+            service_inspect = service.attrs
+            if 'Replicated' in service_inspect["Spec"]["Mode"]:
+                replicas = service_inspect["Spec"]["Mode"]["Replicated"]["Replicas"]
+            else: replicas = -1
+            s.append({
+                "name": service.name,
+                "image": service_inspect['Spec']['TaskTemplate']['ContainerSpec']['Image'],
+                "replicas": replicas,
+                "tasks": await get_tasks(service),
+                "time": int(time.time())
+            })
+    except Exception as e:
+        print(f"Error receiving services: {e}")
+    finally:
+        cli.close()
     return(s)
 
 def renderer(scraped):

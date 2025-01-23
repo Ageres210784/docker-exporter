@@ -17,7 +17,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 ```
-Run `docker compose up`
+Run `docker compose up -d`
 
 ## ... or via `docker swarm stack`
 ```docker
@@ -43,6 +43,31 @@ services:
 ```
 
 Run `docker stack deploy -c docker-compose.yml monitoring`
+
+## Recomendation
+For less problems with restarting docker.socket you should use hardlink to /var/run/docker.sock
+
+### Example
+Add file /etc/systemd/system/docker.socket.d/override.conf
+```ini
+[Socket]
+ExecStartPost=/bin/ln -f /var/run/docker.sock /var/run/docker.run/docker.sock
+```
+Use
+```Docker
+    environment:
+      DOCKER_HOST: unix:///var/run/docker.run/docker.sock
+    volumes:
+      - /var/run/docker.run:/var/run/docker.run:ro
+```
+
+## Environment
+You can use environment variables:
+- `DOCKER_HOST` - path to docker socket (default - unix:///var/run/docker.sock)
+- `EXPORTER_MODE` - exporter mode:
+  - `"docker"` (default) - scrape containers
+  - `"swarm"` - scrape services and tasks
+- `SCRAPE_DELAY` - delay between container information updates (default - 10)
 
 Visit `http://localhost:8000/metrics`
 
